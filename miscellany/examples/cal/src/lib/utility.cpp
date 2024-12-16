@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <regex>
 #include <boost/filesystem.hpp>
 #include <boost/process/environment.hpp>
 #include <boost/process.hpp>
@@ -184,14 +185,22 @@ std::string getClangVersion(const std::string& pathname)
 	args.emplace_back("--version");
 	bp::child proc(pathname, bp::args(args),
 	  bp::std_out > is, bp::std_err > "/dev/null");
-	std::stringstream ss;
+
 	std::string line;
-	bool okay = true;
+	// Regex pattern for version string
+	// the pattern is "x", or "x.y", or "x.y.z"
+	std::regex version_pattern(R"((\d+)(?:\.(\d+))?(?:\.(\d+))?)");		
 	while (std::getline(is, line) && !line.empty()) {
-		ss << line << '\n';
-		if (!ss) {
-			okay = false;
-			break;
+		std::istringstream iss(line);
+		std::string word;
+
+		// scan each word in the line
+		while (iss >> word) {
+			std::smatch matches;
+			if (std::regex_match(word, matches, version_pattern)) {
+				proc.wait();
+				return matches[0].str();
+			}
 		}
 	}
 	proc.wait();
@@ -202,20 +211,7 @@ std::string getClangVersion(const std::string& pathname)
 #endif
 		return "";
 	}
-	std::string version;
-	std::string dummy;
-#if defined(CAL_DEBUG)
-	std::string buffer = ss.str();
-#endif
-	ss >> dummy >> dummy >> version;
-	if (!ss) {
-#if defined(CAL_DEBUG)
-		std::cerr << "stream in failed state\n";
-		std::cerr << std::format("stringstream: {}\n", buffer);
-#endif
-		version = "";
-	}
-	return version;
+	return "";
 }
 
 std::string getClangIncludeDirPathName()
