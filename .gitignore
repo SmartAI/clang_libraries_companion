@@ -1,0 +1,4 @@
+.vscode
+miscellany/examples/cal/build
+build/
+*.diff
